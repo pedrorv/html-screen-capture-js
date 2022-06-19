@@ -59,11 +59,13 @@ const handleElmCss = (context: CaptureContext, domElm: Element, newElm: Element)
     const handleRegularElmStyle = (): string => {
         let classStr = `${context.options.prefixForNewGeneratedClasses}0 `;
         const computedStyle = getComputedStyle(domElm);
+        const isRootHTML = domElm.tagName === 'HTML';
         for (let i = 0; i < computedStyle.length; i++) {
             const property = computedStyle.item(i);
             const value = computedStyle.getPropertyValue(property);
+            const isZoom = property === 'zoom';
             if (value !== context.baseClass.get(property)) {
-                const mapKey = property + ':' + value;
+                const mapKey = property + ':' + (isRootHTML && isZoom ? +value / window.devicePixelRatio : value);
                 let className: string = context.classMap.get(mapKey) || '';
                 if (!className) {
                     context.classCount++;
@@ -112,20 +114,14 @@ const getCanvasDataUrl = (context: CaptureContext, domElm: HTMLImageElement | HT
         if (ctx) {
             ctx.drawImage(domElm, 0, 0);
         }
-        canvasDataUrl = context.canvas.toDataURL(
-            context.options.imageFormatForDataUrl,
-            context.options.imageQualityForDataUrl,
-        );
+        canvasDataUrl = context.canvas.toDataURL(context.options.imageFormatForDataUrl, context.options.imageQualityForDataUrl);
     } catch (ex: any) {
         logger.warn(`getCanvasDataUrl() - ${ex.message}`);
     }
     return canvasDataUrl;
 };
 
-const handleInputElement = (
-    domElm: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
-    newElm: Element,
-): void => {
+const handleInputElement = (domElm: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, newElm: Element): void => {
     newElm.setAttribute('value', domElm.value);
     const domType = domElm.getAttribute('type');
     if (domElm instanceof HTMLInputElement && (domType === 'checkbox' || domType === 'radio')) {
@@ -168,9 +164,7 @@ const shouldIgnoreElm = (context: CaptureContext, domElm: Element): boolean => {
     if (context.ignoredElms.includes(domElm)) {
         return true;
     }
-    const computedStyleKeyValuePairsOfIgnoredElements = Object.entries(
-        context.options.computedStyleKeyValuePairsOfIgnoredElements,
-    );
+    const computedStyleKeyValuePairsOfIgnoredElements = Object.entries(context.options.computedStyleKeyValuePairsOfIgnoredElements);
     if (context.isBody && computedStyleKeyValuePairsOfIgnoredElements.length > 0) {
         const computedStyle = getComputedStyle(domElm);
         for (const [k, v] of computedStyleKeyValuePairsOfIgnoredElements) {
@@ -184,11 +178,7 @@ const shouldIgnoreElm = (context: CaptureContext, domElm: Element): boolean => {
 
 const recursiveWalk = (context: CaptureContext, domElm: Element, newElm: Element, handleCss: boolean): void => {
     if (context.isBody) {
-        if (
-            domElm instanceof HTMLInputElement ||
-            domElm instanceof HTMLTextAreaElement ||
-            domElm instanceof HTMLSelectElement
-        ) {
+        if (domElm instanceof HTMLInputElement || domElm instanceof HTMLTextAreaElement || domElm instanceof HTMLSelectElement) {
             handleInputElement(domElm, newElm);
         } else if (domElm instanceof HTMLImageElement) {
             handleImageElement(context, domElm, newElm);
